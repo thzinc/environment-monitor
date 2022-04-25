@@ -100,12 +100,12 @@ func main() {
 			pms_particulate_matter_environmental.WithLabelValues("1").Set(float64(reading.Pm10Env))
 			pms_particulate_matter_environmental.WithLabelValues("2.5").Set(float64(reading.Pm25Env))
 			pms_particulate_matter_environmental.WithLabelValues("10").Set(float64(reading.Pm100Env))
-			pms_particle_counts.WithLabelValues("3").Set(float64(reading.Particles3um))
-			pms_particle_counts.WithLabelValues("5").Set(float64(reading.Particles5um))
-			pms_particle_counts.WithLabelValues("10").Set(float64(reading.Particles10um))
-			pms_particle_counts.WithLabelValues("25").Set(float64(reading.Particles25um))
-			pms_particle_counts.WithLabelValues("50").Set(float64(reading.Particles50um))
-			pms_particle_counts.WithLabelValues("100").Set(float64(reading.Particles100um))
+			pms_particle_counts.WithLabelValues("0.3").Set(float64(reading.Particles3um))
+			pms_particle_counts.WithLabelValues("0.5").Set(float64(reading.Particles5um))
+			pms_particle_counts.WithLabelValues("1").Set(float64(reading.Particles10um))
+			pms_particle_counts.WithLabelValues("2.5").Set(float64(reading.Particles25um))
+			pms_particle_counts.WithLabelValues("5").Set(float64(reading.Particles50um))
+			pms_particle_counts.WithLabelValues("10").Set(float64(reading.Particles100um))
 			select {
 			case <-group.Context().Done():
 				return nil
