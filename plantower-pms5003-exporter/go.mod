@@ -41,4 +41,4 @@ require (
 	google.golang.org/protobuf v1.26.0 // indirect
 )
 
-replace github.com/rubiojr/go-enviroplus v0.0.0-20210906110705-4d5c8f7032c9 => github.com/thzinc/go-enviroplus v0.0.0-20220425063325-737ab1a2b8f0
+replace github.com/rubiojr/go-enviroplus v0.0.0-20210906110705-4d5c8f7032c9 => github.com/thzinc/go-enviroplus v0.0.0-20220425065409-54653b67e2c3

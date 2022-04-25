@@ -1,11 +1,10 @@
-balenaCloud Prometheus and Grafana
-===================================
+# balenaCloud Prometheus and Grafana
 
 ### Introduction
-This project creates an application running Prometheus, Grafana and Node Exporter and can self-monitor. To add additional node targets, simply add the _node_exporter_ folder to any other project and add a Device Environment variable via the balenaCloud dashboard to update the _docker-compose.yml_ file, as shown in __Monitor other devices__ below.
+
+This project creates an application running Prometheus, Grafana and Node Exporter and can self-monitor. To add additional node targets, simply add the _node_exporter_ folder to any other project and add a Device Environment variable via the balenaCloud dashboard to update the _docker-compose.yml_ file, as shown in **Monitor other devices** below.
 
 ![Dashboard](http://tonellolabs.com/images/grafana_dashboard.png)
-
 
 ```
 /balena-prometheus-grafana/
@@ -51,17 +50,18 @@ scrape_configs:
     scheme: http
     static_configs:
     - targets: ['node_exporter:9100']
-```      
+```
 
 Two networks are used. The _frontend_ network enables external connections to ports 3000, 9090 and 9100 on the Prometheus service to enable requests to and from Grafana (3000), Prometheus (9090) and Node Exporter (9100). The _backend_ network enables the local name resolution of _node_exporter_. However, all networks could be set as _network_mode: host_ for simplicity, and on other devices that aren't resolvable on the Prometheus/Grafana node.
 
-Note that the architecture of Prometheus is set as an "ARCH" argument defined in each _Dockerfile.template_. This should be updated with the appropriate version for your architecture. RPi 3 requires _armv7_. Pi4 and NUC devices should use _arm64_. 
+Note that the architecture of Prometheus is set as an "ARCH" argument defined in each _Dockerfile.template_. This should be updated with the appropriate version for your architecture. RPi 3 requires _armv7_. Pi4 and NUC devices should use _arm64_.
 
 ### Monitor other devices
+
 In order to add monitoring of other devices, add the following to its separate _docker-compose.yml_ file:
 
 ```
-# Add Node Exporter to this app    
+# Add Node Exporter to this app
   node_exporter:
     build: ./node_exporter
     ports:
@@ -69,6 +69,7 @@ In order to add monitoring of other devices, add the following to its separate _
     network_mode: host
     container_name: node_exporter
 ```
+
 Secondly, add the ./node_exporter folder to that application, with a Dockerfile.template that looks like this:
 
 ```
@@ -92,6 +93,7 @@ Finally, add a new entry in the balenaCloud Device Variables for the application
 Each target address will show up in your Prometheus targets, [http://prometheus-IP/targets](#).
 
 ### Deploy
+
 Clone this repository, change into the balena-prometheus-grafana directory and push to your application:
 
 ```
@@ -99,9 +101,22 @@ Clone this repository, change into the balena-prometheus-grafana directory and p
  $ cd balena-grafana
  $ balena push <appname>
 ```
+
 ### View data in the dashboard
+
 In order to start viewing system data, log in to the Grafana dashboard at _http<nolink>://device-host-ip:3000_ with admin/admin. Set a password. Since this deployment automatically sets up the Prometheus datasource and the Node Exporter dashboard, you're done. Once you login, you can view graphical data by clicking on the Dashboard menu item and then on "Node Exporter".
 
 ### Helpful references
-* [How to Integrate Grafana with Prometheus for Monitoring](https://www.linuxtechi.com/integrate-grafana-prometheus-monitoring/)
-* [How to Install Prometheus](https://www.linuxtechi.com/install-prometheus-monitoring-tool-centos-8-rhel-8/)
+
+- [How to Integrate Grafana with Prometheus for Monitoring](https://www.linuxtechi.com/integrate-grafana-prometheus-monitoring/)
+- [How to Install Prometheus](https://www.linuxtechi.com/install-prometheus-monitoring-tool-centos-8-rhel-8/)
+
+# Notes
+
+- UART: https://www.electronicwings.com/raspberry-pi/raspberry-pi-uart-communication-using-python-and-c
+- I2C: https://www.balena.io/docs/learn/develop/hardware/i2c-and-spi/#i2c
+- Balena hardware stuff: https://www.balena.io/docs/learn/develop/hardware/
+- Balena examples for priv mode and labels: https://github.com/balenalabs-incubator/boombeastic/blob/master/docker-compose.yml
+- "breathe" https://www.markhansen.co.nz/raspberry-pi-air-quality-sensor/
+  - also https://github.com/mhansen/breathe/blob/master/breathe.go
+- https://stackoverflow.com/questions/39320025/how-to-stop-http-listenandserve

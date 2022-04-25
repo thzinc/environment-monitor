@@ -84,7 +84,9 @@ func main() {
 		http.Handle("/metrics", promhttp.Handler())
 		return http.ListenAndServe(fmt.Sprintf(":%d", MetricsPort), nil)
 	})
-	group.Go(dev.StartReading)
+	group.Go(func() error {
+		return dev.StartReadingWithContext(group.Context())
+	})
 	group.Go(func() error {
 		for {
 			reading := dev.LastValue()
@@ -104,7 +106,11 @@ func main() {
 			pms_particle_counts.WithLabelValues("25").Set(float64(reading.Particles25um))
 			pms_particle_counts.WithLabelValues("50").Set(float64(reading.Particles50um))
 			pms_particle_counts.WithLabelValues("100").Set(float64(reading.Particles100um))
-			time.Sleep(1 * time.Second)
+			select {
+			case <-group.Context().Done():
+				return nil
+			case <-time.After(1 * time.Second):
+			}
 		}
 	})
 

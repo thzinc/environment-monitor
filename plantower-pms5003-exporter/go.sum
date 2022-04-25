@@ -312,6 +312,8 @@ github.com/thzinc/go-enviroplus v0.0.0-20220425055805-9833e55e7132 h1:JTlTvSw7lO
 github.com/thzinc/go-enviroplus v0.0.0-20220425055805-9833e55e7132/go.mod h1:vzREQacCOx+5FbTDVomy9wxORGq6mgDaExnKd+WgHOM=
 github.com/thzinc/go-enviroplus v0.0.0-20220425063325-737ab1a2b8f0 h1:Zj1je5YLY6px9CU/1noZaDXEnd/CGjCJE0kpaOnslmk=
 github.com/thzinc/go-enviroplus v0.0.0-20220425063325-737ab1a2b8f0/go.mod h1:vzREQacCOx+5FbTDVomy9wxORGq6mgDaExnKd+WgHOM=
+github.com/thzinc/go-enviroplus v0.0.0-20220425065409-54653b67e2c3 h1:TCpJVP89uaSVH+TA9UmwmCe5DaZNwTQ7knxhf0EUKqQ=
+github.com/thzinc/go-enviroplus v0.0.0-20220425065409-54653b67e2c3/go.mod h1:vzREQacCOx+5FbTDVomy9wxORGq6mgDaExnKd+WgHOM=
 github.com/thzinc/go-enviroplus v0.0.1 h1:Uz/ZCqGChhMzx3y6hXvNDWBF6RNDnzC+OpWnVa+IIYY=
 github.com/thzinc/go-enviroplus v0.0.1/go.mod h1:+Wee0TTtbBWw0aSHxYj95gTsEK1iLId/7kBbIV1Sn9M=
 github.com/tidwall/pretty v0.0.0-20180105212114-65a9db5fad51/go.mod h1:XNkn88O1ChpSDQmQeStsy+sBenx6DDtFZJxhVysOjyk=
