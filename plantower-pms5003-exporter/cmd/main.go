@@ -3,64 +3,108 @@ package main
 import (
 	"context"
 	"fmt"
-	"io"
-	"log"
 	"net/http"
+	"time"
+
+	"github.com/rubiojr/go-enviroplus/pms5003"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/syncromatics/go-kit/cmd"
-	"github.com/tarm/serial"
+	"github.com/stianeikeland/go-rpio/v4"
+	"github.com/syncromatics/go-kit/v2/cmd"
+	"github.com/syncromatics/go-kit/v2/log"
+)
+
+const (
+	MetricsPort int = 9100
+	j8p13           = 21
+	j8p15           = 22
 )
 
 var (
-	path        string = "/dev/ttyAMA0"
-	baud        int    = 9600
-	metricsPort int    = 9100
+	pms_received_packets = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Name: "pms_received_packets",
+		},
+	)
 
-	opsProcessed = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "xxx_tmp_ops_processed",
-		Help: "The total number of processed events",
-	})
+	// https://cdn-shop.adafruit.com/product-files/3686/plantower-pms5003-manual_v2-3.pdf
+	pms_particulate_matter_standard = promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "pms_particulate_matter_standard",
+			Help: "Micrograms per cubic meter, standard particle",
+		},
+		[]string{"microns"},
+	)
+
+	// https://cdn-shop.adafruit.com/product-files/3686/plantower-pms5003-manual_v2-3.pdf
+	pms_particulate_matter_environmental = promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "pms_particulate_matter_environmental",
+			Help: "micrograms per cubic meter, adjusted for atmospheric environment",
+		},
+		[]string{"microns"},
+	)
+
+	// https://cdn-shop.adafruit.com/product-files/3686/plantower-pms5003-manual_v2-3.pdf
+	pms_particle_counts = promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "pms_particle_counts",
+			Help: "Number of particles with diameter beyond given number of microns in 0.1L of air",
+		},
+		[]string{"microns_lower_bound"},
+	)
 )
 
 func main() {
-	fmt.Println("wow")
-	config := &serial.Config{Name: path, Baud: baud, StopBits: 1, Parity: serial.ParityNone, Size: 8}
-	port, err := serial.OpenPort(config)
+	err := rpio.Open()
 	if err != nil {
-		panic(err)
+		log.Fatal("failed to initialize GPIO",
+			"err", err)
 	}
+	defer rpio.Close()
+
+	pin27 := rpio.Pin(j8p13)
+	pin27.Mode(rpio.Output)
+
+	pin22 := rpio.Pin(j8p15)
+	pin22.Mode(rpio.Output)
+
+	dev, err := pms5003.New()
+	if err != nil {
+		log.Fatal("failed to initialize UART",
+			"err", err)
+	}
+
+	dev.EnableDebugging()
 
 	group := cmd.NewProcessGroup(context.Background())
 	group.Go(func() error {
 		http.Handle("/metrics", promhttp.Handler())
-		return http.ListenAndServe(fmt.Sprintf(":%d", metricsPort), nil)
+		return http.ListenAndServe(fmt.Sprintf(":%d", MetricsPort), nil)
 	})
+	group.Go(dev.StartReading)
 	group.Go(func() error {
 		for {
-			b := make([]byte, 1)
-			cnt, err := port.Read(b)
-			if err != nil {
-				return err
-			}
-			log.Printf("got %d %x: %b; want %b\n", cnt, b, b, 0x42)
-			if b[0] == 0x42 {
-				discard := make([]byte, 31)
-				io.ReadAtLeast(port, discard, 31)
-				break
-			}
-		}
-		for {
-			opsProcessed.Inc()
-			buf := make([]byte, 32)
-			c, err := io.ReadAtLeast(port, buf, 32)
+			reading := dev.LastValue()
+			log.Debug("last reading",
+				"reading", reading)
 
-			if err != nil {
-				return err
-			}
-			fmt.Printf("%d: %v\n", c, buf[0:c])
+			pms_received_packets.Inc()
+			pms_particulate_matter_standard.WithLabelValues("1").Set(float64(reading.Pm10Std))
+			pms_particulate_matter_standard.WithLabelValues("2.5").Set(float64(reading.Pm25Std))
+			pms_particulate_matter_standard.WithLabelValues("10").Set(float64(reading.Pm100Std))
+			pms_particulate_matter_environmental.WithLabelValues("1").Set(float64(reading.Pm10Env))
+			pms_particulate_matter_environmental.WithLabelValues("2.5").Set(float64(reading.Pm25Env))
+			pms_particulate_matter_environmental.WithLabelValues("10").Set(float64(reading.Pm100Env))
+			pms_particle_counts.WithLabelValues("3").Set(float64(reading.Particles3um))
+			pms_particle_counts.WithLabelValues("5").Set(float64(reading.Particles5um))
+			pms_particle_counts.WithLabelValues("10").Set(float64(reading.Particles10um))
+			pms_particle_counts.WithLabelValues("25").Set(float64(reading.Particles25um))
+			pms_particle_counts.WithLabelValues("50").Set(float64(reading.Particles50um))
+			pms_particle_counts.WithLabelValues("100").Set(float64(reading.Particles100um))
+			time.Sleep(1 * time.Second)
 		}
 	})
 

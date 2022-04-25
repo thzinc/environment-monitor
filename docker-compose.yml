@@ -36,10 +36,7 @@ services:
       io.balena.features.dbus: "1"
   plantower-pms5003-exporter:
     build: ./plantower-pms5003-exporter
-    devices:
-      - "/dev/ttyAMA0:/dev/ttyAMA0"
-    cap_add:
-      - SYS_RAWIO
+    privileged: true
     networks:
       - backend
 
