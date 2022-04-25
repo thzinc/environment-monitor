@@ -34,6 +34,14 @@ services:
       DBUS_SYSTEM_BUS_ADDRESS: "unix:path=/host/run/dbus/system_bus_socket"
     labels:
       io.balena.features.dbus: "1"
+  plantower-pms5003-exporter:
+    build: ./plantower-pms5003-exporter
+    devices:
+      - "/dev/ttyAMA0:/dev/ttyAMA0"
+    cap_add:
+      - SYS_RAWIO
+    networks:
+      - backend
 
 networks:
   frontend:

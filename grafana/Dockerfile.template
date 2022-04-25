@@ -8,4 +8,4 @@ COPY ./conf/dash* /etc/grafana/provisioning/dashboards/
 
 EXPOSE 3000
 
-CMD [ "/usr/share/grafana/bin/grafana-server", "--homepath=/usr/share/grafana --config=/etc/grafana/grafana.ini --pac]
+CMD [ "/usr/share/grafana/bin/grafana-server", "--homepath=/usr/share/grafana --config=/etc/grafana/grafana.ini --pac" ]
