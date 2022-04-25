@@ -1,0 +1,20 @@
+FROM balenalib/%%BALENA_MACHINE_NAME%%-debian:stretch
+
+# Set the correct architecture for your device
+ARG ARCH="armv7"
+
+# Install Prometheus
+RUN export DEBIAN_FRONTEND=noninteractive && \
+    install_packages apt-utils wget vim tar gzip && \
+    wget -qO - https://github.com/prometheus/prometheus/releases/download/v2.15.2/prometheus-2.15.2.linux-${ARCH}.tar.gz > prometheus.tar.gz  && \
+    tar zxf prometheus.tar.gz && \
+    mv prometheus-* prometheus && \
+    rm prometheus.tar.gz
+
+# Create a peristent volume and copy config file into it
+VOLUME /etc/prometheus
+COPY prometheus.yml /etc/prometheus/prometheus.yml 
+
+# Start Prometheus
+COPY start.sh ./
+ENTRYPOINT [ "/bin/bash", "./start.sh" ]
