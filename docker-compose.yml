@@ -8,32 +8,38 @@ services:
     networks:
       - frontend
       - backend
-    depends_on: 
+    depends_on:
       - node_exporter
     container_name: prometheus
   grafana:
     build: ./grafana
-    ports: 
+    ports:
       - "3000:3000"
     networks:
-        - frontend
-        - backend
+      - frontend
+      - backend
     volumes:
-        - grafana_etc:/etc/grafana
-        - grafana_usr:/usr/share/grafana 
-        - grafana_var:/var/lib/grafana
+      - grafana_etc:/etc/grafana
+      - grafana_usr:/usr/share/grafana
+      - grafana_var:/var/lib/grafana
     container_name: grafana
   node_exporter:
     build: ./node_exporter
     networks:
-        - backend
+      - backend
     container_name: node_exporter
+  mdns-publisher:
+    build: ./mdns-publisher
+    environment:
+      DBUS_SYSTEM_BUS_ADDRESS: "unix:path=/host/run/dbus/system_bus_socket"
+    labels:
+      io.balena.features.dbus: "1"
 
 networks:
-    frontend:
-    backend:
+  frontend:
+  backend:
 
 volumes:
-    grafana_etc:
-    grafana_usr:
-    grafana_var:
+  grafana_etc:
+  grafana_usr:
+  grafana_var:
