@@ -8,6 +8,7 @@ import (
 	"io"
 
 	"github.com/pkg/errors"
+	"github.com/syncromatics/go-kit/v2/log"
 	"github.com/tarm/serial"
 	"golang.org/x/sync/errgroup"
 )
@@ -70,64 +71,68 @@ func (s *Sensor) Start(ctx context.Context) func() error {
 	return func() error {
 		defer close(s.readings)
 
-		config := &serial.Config{
-			Name:     "/dev/ttyAMA0",
-			Baud:     9600,
-			Size:     8,
-			Parity:   serial.ParityNone,
-			StopBits: serial.Stop1,
-		}
-		port, err := serial.OpenPort(config)
-		if err != nil {
-			return errors.Wrapf(err, "failed to open port %v", config.Name)
-		}
-
-		reader := bufio.NewReader(port)
-		group, innerCtx := errgroup.WithContext(ctx)
-		group.Go(func() error {
-			for {
-				err = seekToRecordStart(innerCtx, reader)
-				if err != nil {
-					return errors.Wrap(err, "failed to seek to start of record")
-				}
-
-				buf := make([]byte, 30)
-				_, err := io.ReadFull(reader, buf)
-				if err != nil {
-					return errors.Wrap(err, "failed to read record")
-				}
-
-				rdr := bytes.NewReader(buf)
-				reading := &Reading{}
-				err = binary.Read(rdr, binary.BigEndian, reading)
-				if err != nil {
-					return errors.Wrapf(err, "failed to read %v into struct", buf)
-				}
-
-				var expectedChecksum uint16 = uint16(startCharacter1) + uint16(startCharacter2)
-				for i := 0; i < 28; i++ {
-					expectedChecksum += uint16(buf[i])
-				}
-
-				if reading.Checksum != expectedChecksum {
-					continue
-					// return errors.Errorf("failed to validate reading checksum %v of %v against expected %v", reading.Checksum, buf, expectedChecksum)
-				}
-
-				select {
-				case s.readings <- reading:
-				case <-innerCtx.Done():
-					return nil
-				}
+		for {
+			config := &serial.Config{
+				Name:     "/dev/ttyAMA0",
+				Baud:     9600,
+				Size:     8,
+				Parity:   serial.ParityNone,
+				StopBits: serial.Stop1,
 			}
-		})
-		group.Go(func() error {
-			<-innerCtx.Done()
-			port.Close()
-			return nil
-		})
+			port, err := serial.OpenPort(config)
+			if err != nil {
+				return errors.Wrapf(err, "failed to open port %v", config.Name)
+			}
 
-		return group.Wait()
+			reader := bufio.NewReader(port)
+			group, innerCtx := errgroup.WithContext(ctx)
+			group.Go(func() error {
+				for {
+					err = seekToRecordStart(innerCtx, reader)
+					if err != nil {
+						return errors.Wrap(err, "failed to seek to start of record")
+					}
+
+					buf := make([]byte, 30)
+					_, err := io.ReadFull(reader, buf)
+					if err != nil {
+						return errors.Wrap(err, "failed to read record")
+					}
+
+					rdr := bytes.NewReader(buf)
+					reading := &Reading{}
+					err = binary.Read(rdr, binary.BigEndian, reading)
+					if err != nil {
+						return errors.Wrapf(err, "failed to read %v into struct", buf)
+					}
+
+					var expectedChecksum uint16 = uint16(startCharacter1) + uint16(startCharacter2)
+					for i := 0; i < 28; i++ {
+						expectedChecksum += uint16(buf[i])
+					}
+
+					if reading.Checksum != expectedChecksum {
+						continue
+						// return errors.Errorf("failed to validate reading checksum %v of %v against expected %v", reading.Checksum, buf, expectedChecksum)
+					}
+
+					select {
+					case s.readings <- reading:
+					case <-innerCtx.Done():
+						return nil
+					}
+				}
+			})
+			group.Go(func() error {
+				<-innerCtx.Done()
+				port.Close()
+				return nil
+			})
+
+			err = group.Wait()
+			log.Debug("failed to stay connected",
+				"err", err)
+		}
 	}
 }
 
