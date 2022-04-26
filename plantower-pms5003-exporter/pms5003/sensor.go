@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
-	"time"
 
 	"github.com/pkg/errors"
 	"github.com/tarm/serial"
@@ -70,12 +69,11 @@ func (s *Sensor) Start(ctx context.Context) func() error {
 		defer close(s.readings)
 
 		config := &serial.Config{
-			Name:        "/dev/ttyAMA0",
-			Baud:        9600,
-			Size:        8,
-			Parity:      serial.ParityNone,
-			StopBits:    serial.Stop1,
-			ReadTimeout: 2300 * time.Millisecond,
+			Name:     "/dev/ttyAMA0",
+			Baud:     9600,
+			Size:     8,
+			Parity:   serial.ParityNone,
+			StopBits: serial.Stop1,
 		}
 		port, err := serial.OpenPort(config)
 		if err != nil {
@@ -91,9 +89,12 @@ func (s *Sensor) Start(ctx context.Context) func() error {
 				}
 
 				buf := make([]byte, 30)
-				count, _ := port.Read(buf)
+				count, err := port.Read(buf)
+				if err != nil {
+					return errors.Wrap(err, "failed to read record")
+				}
 				if count != 30 {
-					return errors.New("failed to read expected data")
+					return errors.Errorf("failed to read expected %v bytes of data; got %v bytes: %v", len(buf), count, buf)
 				}
 
 				rdr := bytes.NewReader(buf)
@@ -132,15 +133,15 @@ func (s *Sensor) Start(ctx context.Context) func() error {
 func seekToRecordStart(ctx context.Context, port *serial.Port) error {
 	for {
 		buf := make([]byte, 1)
-		count, _ := port.Read(buf)
-		if count == 0 {
-			continue
+		_, err := port.Read(buf)
+		if err != nil {
+			return err
 		}
 		if buf[0] == startCharacter1 {
 			for {
-				count, _ = port.Read(buf)
-				if count == 0 {
-					continue
+				_, err = port.Read(buf)
+				if err != nil {
+					return err
 				}
 				if buf[0] == startCharacter2 {
 					return nil

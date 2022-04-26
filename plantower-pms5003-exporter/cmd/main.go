@@ -52,19 +52,33 @@ var (
 func main() {
 	group := cmd.NewProcessGroup(context.Background())
 
+	metricServer := http.Server{
+		Addr:    fmt.Sprintf(":%d", MetricsPort),
+		Handler: nil,
+	}
+	log.Info("starting metrics server",
+		"addr", metricServer.Addr)
 	group.Go(func() error {
 		http.Handle("/metrics", promhttp.Handler())
-		return http.ListenAndServe(fmt.Sprintf(":%d", MetricsPort), nil)
+		return metricServer.ListenAndServe()
+	})
+	group.Go(func() error {
+		<-group.Context().Done()
+		log.Info("stopping metrics server")
+		return metricServer.Close()
 	})
 
 	sensor := pms5003.NewSensor()
+	log.Info("starting sensor",
+		"sensor", sensor)
 	group.Go(sensor.Start(group.Context()))
-
 	group.Go(func() error {
 		for {
+			log.Debug("waiting for reading...")
 			select {
 			case reading, ok := <-sensor.Readings():
 				if !ok {
+					log.Debug("readings channel closed")
 					return nil
 				}
 
