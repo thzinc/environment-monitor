@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"io"
 
 	"github.com/pkg/errors"
 	"github.com/tarm/serial"
@@ -89,7 +90,7 @@ func (s *Sensor) Start(ctx context.Context) func() error {
 				}
 
 				buf := make([]byte, 30)
-				count, err := port.Read(buf)
+				count, err := io.ReadFull(port, buf)
 				if err != nil {
 					return errors.Wrap(err, "failed to read record")
 				}
@@ -133,13 +134,13 @@ func (s *Sensor) Start(ctx context.Context) func() error {
 func seekToRecordStart(ctx context.Context, port *serial.Port) error {
 	for {
 		buf := make([]byte, 1)
-		_, err := port.Read(buf)
+		_, err := io.ReadFull(port, buf)
 		if err != nil {
 			return err
 		}
 		if buf[0] == startCharacter1 {
 			for {
-				_, err = port.Read(buf)
+				_, err := io.ReadFull(port, buf)
 				if err != nil {
 					return err
 				}
