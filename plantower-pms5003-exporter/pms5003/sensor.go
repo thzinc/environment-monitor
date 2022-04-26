@@ -1,6 +1,7 @@
 package pms5003
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/binary"
@@ -81,21 +82,19 @@ func (s *Sensor) Start(ctx context.Context) func() error {
 			return errors.Wrapf(err, "failed to open port %v", config.Name)
 		}
 
+		reader := bufio.NewReader(port)
 		group, innerCtx := errgroup.WithContext(ctx)
 		group.Go(func() error {
 			for {
-				err = seekToRecordStart(innerCtx, port)
+				err = seekToRecordStart(innerCtx, reader)
 				if err != nil {
 					return errors.Wrap(err, "failed to seek to start of record")
 				}
 
 				buf := make([]byte, 30)
-				count, err := io.ReadFull(port, buf)
+				_, err := io.ReadFull(reader, buf)
 				if err != nil {
 					return errors.Wrap(err, "failed to read record")
-				}
-				if count != 30 {
-					return errors.Errorf("failed to read expected %v bytes of data; got %v bytes: %v", len(buf), count, buf)
 				}
 
 				rdr := bytes.NewReader(buf)
@@ -111,7 +110,8 @@ func (s *Sensor) Start(ctx context.Context) func() error {
 				}
 
 				if reading.Checksum != expectedChecksum {
-					return errors.Errorf("failed to validate reading checksum %v against expected %v", reading.Checksum, expectedChecksum)
+					continue
+					// return errors.Errorf("failed to validate reading checksum %v of %v against expected %v", reading.Checksum, buf, expectedChecksum)
 				}
 
 				select {
@@ -131,24 +131,24 @@ func (s *Sensor) Start(ctx context.Context) func() error {
 	}
 }
 
-func seekToRecordStart(ctx context.Context, port *serial.Port) error {
+func seekToRecordStart(ctx context.Context, reader *bufio.Reader) error {
 	for {
-		buf := make([]byte, 1)
-		_, err := io.ReadFull(port, buf)
+		b, err := reader.ReadByte()
 		if err != nil {
 			return err
 		}
-		if buf[0] == startCharacter1 {
-			for {
-				_, err := io.ReadFull(port, buf)
-				if err != nil {
-					return err
-				}
-				if buf[0] == startCharacter2 {
-					return nil
-				}
-				break
-			}
+		if b != startCharacter1 {
+			continue
 		}
+
+		b, err = reader.ReadByte()
+		if err != nil {
+			return err
+		}
+		if b != startCharacter2 {
+			continue
+		}
+
+		return nil
 	}
 }

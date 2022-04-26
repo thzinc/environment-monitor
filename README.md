@@ -120,3 +120,7 @@ In order to start viewing system data, log in to the Grafana dashboard at _http<
 - "breathe" https://www.markhansen.co.nz/raspberry-pi-air-quality-sensor/
   - also https://github.com/mhansen/breathe/blob/master/breathe.go
 - https://stackoverflow.com/questions/39320025/how-to-stop-http-listenandserve
+- UGH: https://www.raspberrypi.com/documentation/computers/config_txt.html#enable_uart
+- https://www.balena.io/docs/reference/supervisor/configuration-list/raspberrypi3/
+- https://www.raspberrypi.com/documentation/computers/config_txt.html#enable_uart
+- https://www.balena.io/docs/reference/OS/advanced/
