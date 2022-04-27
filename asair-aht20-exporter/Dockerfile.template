@@ -1,0 +1,12 @@
+FROM balenalib/%%BALENA_MACHINE_NAME%%-debian-golang:stretch AS build
+
+WORKDIR /build
+COPY . .
+RUN go build -o /artifacts/exporter cmd/main.go
+
+FROM balenalib/%%BALENA_MACHINE_NAME%%-debian-golang:stretch AS final
+WORKDIR /app
+COPY --from=build /artifacts/exporter .
+
+EXPOSE 9100
+CMD modprobe i2c-dev && /app/exporter

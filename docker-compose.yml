@@ -39,6 +39,11 @@ services:
     privileged: true
     networks:
       - backend
+  asair-aht20-exporter:
+    build: ./asair-aht20-exporter
+    privileged: true
+    networks:
+      - backend
 
 networks:
   frontend:
