@@ -35,7 +35,7 @@ var (
 	pms_particulate_matter_environmental = promauto.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "pms_particulate_matter_environmental",
-			Help: "micrograms per cubic meter, adjusted for atmospheric environment",
+			Help: "Micrograms per cubic meter, adjusted for atmospheric environment",
 		},
 		[]string{"microns"},
 	)
