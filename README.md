@@ -126,6 +126,16 @@ In order to start viewing system data, log in to the Grafana dashboard at _http<
 - https://www.balena.io/docs/reference/OS/advanced/
 - Issues with UART on Raspberry Pi 3 specifically: https://forums.balena.io/t/disable-console-over-serial-in-dev-on-rpi3/1412/21
 
+On host OS
+
+```bash
+mount -o remount,rw /
+systemctl mask serial-getty@ttyAMA0.service
+systemctl mask serial-getty@serial0.service
+systemctl mask serial-getty@serial1.service
+reboot
+```
+
 ## AQI notes
 
 - https://www.airnow.gov/sites/default/files/2020-05/aqi-technical-assistance-document-sept2018.pdf
