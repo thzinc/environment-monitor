@@ -37,6 +37,10 @@ services:
   plantower-pms5003-exporter:
     build: ./plantower-pms5003-exporter
     privileged: true
+    environment:
+      PMS5003_PORT: /dev/ttyAMA0
+      PMS5003_METRICS_PORT: "9100"
+      PMS5003_RECONNECT_TIMEOUT: 1s
     networks:
       - backend
   asair-aht20-exporter:
