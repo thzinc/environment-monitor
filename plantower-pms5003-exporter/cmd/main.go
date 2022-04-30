@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"plantower-pms5003-exporter/pms5003"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -14,7 +15,9 @@ import (
 )
 
 const (
-	MetricsPort int = 9100
+	DefaultMetricsPort      int           = 9100
+	DefaultPortName         string        = "/dev/ttyAMA0"
+	DefaultReconnectTimeout time.Duration = 1 * time.Second
 )
 
 var (
@@ -53,7 +56,7 @@ func main() {
 	group := cmd.NewProcessGroup(context.Background())
 
 	metricServer := http.Server{
-		Addr:    fmt.Sprintf(":%d", MetricsPort),
+		Addr:    fmt.Sprintf(":%d", DefaultMetricsPort), // TODO: read from settings
 		Handler: nil,
 	}
 	log.Info("starting metrics server",
@@ -68,7 +71,17 @@ func main() {
 		return metricServer.Close()
 	})
 
-	sensor := pms5003.NewSensor()
+	reconnectTimeout, err := time.ParseDuration("1s") // TODO: read from settings
+	if err != nil {
+		log.Warn("failed to parse reconnect timeout duration; using default timeout",
+			"err", err,
+			"DefaultReconnectTimeout", DefaultReconnectTimeout)
+		reconnectTimeout = DefaultReconnectTimeout
+	}
+
+	portName := DefaultPortName // TODO: read from settings
+
+	sensor := pms5003.NewSensor(portName, reconnectTimeout)
 	log.Info("starting sensor",
 		"sensor", sensor)
 	group.Go(sensor.Start(group.Context()))
@@ -104,7 +117,7 @@ func main() {
 		}
 	})
 
-	err := group.Wait()
+	err = group.Wait()
 	if err != nil {
 		log.Fatal("failed to terminate cleanly",
 			"err", err)

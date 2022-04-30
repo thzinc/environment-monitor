@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/binary"
 	"io"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/syncromatics/go-kit/v2/log"
@@ -53,13 +54,17 @@ type Reading struct {
 }
 
 type Sensor struct {
-	readings chan *Reading
+	portName         string
+	readings         chan *Reading
+	reconnectTimeout time.Duration
 }
 
-func NewSensor() *Sensor {
+func NewSensor(portName string, reconnectTimeout time.Duration) *Sensor {
 	readings := make(chan *Reading)
 	return &Sensor{
-		readings: readings,
+		portName,
+		readings,
+		reconnectTimeout,
 	}
 }
 
@@ -73,7 +78,7 @@ func (s *Sensor) Start(ctx context.Context) func() error {
 
 		for {
 			config := &serial.Config{
-				Name:     "/dev/ttyAMA0",
+				Name:     s.portName,
 				Baud:     9600,
 				Size:     8,
 				Parity:   serial.ParityNone,
@@ -112,8 +117,11 @@ func (s *Sensor) Start(ctx context.Context) func() error {
 					}
 
 					if reading.Checksum != expectedChecksum {
+						log.Debug("failed to validate checksum",
+							"buf", buf,
+							"reading", reading,
+							"expectedChecksum", expectedChecksum)
 						continue
-						// return errors.Errorf("failed to validate reading checksum %v of %v against expected %v", reading.Checksum, buf, expectedChecksum)
 					}
 
 					select {
@@ -130,8 +138,16 @@ func (s *Sensor) Start(ctx context.Context) func() error {
 			})
 
 			err = group.Wait()
-			log.Debug("failed to stay connected",
-				"err", err)
+			log.Info("disconnected from sensor; waiting to reconnect",
+				"err", err,
+				"reconnectTimeout", s.reconnectTimeout)
+
+			select {
+			case <-ctx.Done():
+				return nil
+			case <-time.After(s.reconnectTimeout):
+				log.Info("reconnecting")
+			}
 		}
 	}
 }
