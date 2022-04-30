@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/d2r2/go-i2c"
+	"github.com/d2r2/go-logger"
 	"github.com/pkg/errors"
 	"github.com/syncromatics/go-kit/v2/log"
 	"golang.org/x/sync/errgroup"
@@ -30,6 +31,10 @@ type Sensor struct {
 	i2cBus           int
 	readings         chan *Reading
 	reconnectTimeout time.Duration
+}
+
+func init() {
+	logger.ChangePackageLogLevel("i2c", logger.InfoLevel)
 }
 
 func NewSensor(
