@@ -1,3 +1,2 @@
 Dockerfile.template
-plantower-pms5003-exporter/docs/
-asair-aht20-exporter/docs/
+sensor-exporter/docs/

@@ -4,7 +4,8 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"plantower-pms5003-exporter/pms5003"
+	"sensor-exporter/aht20"
+	"sensor-exporter/pms5003"
 	"strings"
 	"time"
 
@@ -20,17 +21,35 @@ import (
 
 const (
 	DefaultMetricsPort      int           = 9100
-	DefaultPortName         string        = "/dev/ttyAMA0"
+	DefaultPMS5003PortName  string        = "/dev/ttyAMA0"
+	DefaultAHT20I2CAddr     uint8         = 0x38
+	DefaultAHT20I2CBus      int           = 1
 	DefaultReconnectTimeout time.Duration = 1 * time.Second
 )
 
 var (
+	aht_received_packets = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Name: "aht_received_packets",
+		},
+	)
+	aht_relative_humidity = promauto.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "aht_relative_humidity",
+			Help: "Percentage of relative humidity",
+		},
+	)
+	aht_temperature = promauto.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "aht_temperature",
+			Help: "Temperature in degrees Celsius",
+		},
+	)
 	pms_received_packets = promauto.NewCounter(
 		prometheus.CounterOpts{
 			Name: "pms_received_packets",
 		},
 	)
-
 	pms_particulate_matter_standard = promauto.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "pms_particulate_matter_standard",
@@ -38,7 +57,6 @@ var (
 		},
 		[]string{"microns"},
 	)
-
 	pms_particulate_matter_environmental = promauto.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "pms_particulate_matter_environmental",
@@ -46,7 +64,6 @@ var (
 		},
 		[]string{"microns"},
 	)
-
 	pms_particle_counts = promauto.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "pms_particle_counts",
@@ -84,15 +101,15 @@ var (
 				return metricServer.Close()
 			})
 
-			sensor := pms5003.NewSensor(settings.PortName, settings.ReconnectTimeout)
-			log.Info("starting sensor",
-				"sensor", sensor)
-			group.Go(sensor.Start(group.Context()))
+			particulateSensor := pms5003.NewSensor(settings.PMSPortName, settings.ReconnectTimeout)
+			log.Info("starting particulate sensor",
+				"sensor", particulateSensor)
+			group.Go(particulateSensor.Start(group.Context()))
 			group.Go(func() error {
 				for {
 					log.Debug("waiting for reading...")
 					select {
-					case reading, ok := <-sensor.Readings():
+					case reading, ok := <-particulateSensor.Readings():
 						if !ok {
 							log.Debug("readings channel closed")
 							return nil
@@ -120,6 +137,32 @@ var (
 				}
 			})
 
+			tempHumiditySensor := aht20.NewSensor(settings.AHT20I2CAddr, settings.AHT20I2CBus, settings.ReconnectTimeout)
+			log.Info("starting temperature and humidity sensor",
+				"sensor", tempHumiditySensor)
+			group.Go(tempHumiditySensor.Start(group.Context()))
+			group.Go(func() error {
+				for {
+					log.Debug("waiting for reading...")
+					select {
+					case reading, ok := <-tempHumiditySensor.Readings():
+						if !ok {
+							log.Debug("readings channel closed")
+							return nil
+						}
+
+						log.Debug("received reading",
+							"reading", reading)
+
+						aht_received_packets.Inc()
+						aht_relative_humidity.Set(float64(reading.Humidity))
+						aht_temperature.Set(float64(reading.Temperature))
+					case <-group.Context().Done():
+						return nil
+					}
+				}
+			})
+
 			return group.Wait()
 		},
 	}
@@ -128,16 +171,20 @@ var (
 // Settings defines the configured settings for the exporter
 type Settings struct {
 	MetricsPort      int           `mapstructure:"metrics-port"`
-	PortName         string        `mapstructure:"port"`
 	ReconnectTimeout time.Duration `mapstructure:"reconnect-timeout"`
+	PMSPortName      string        `mapstructure:"pms5003-port"`
+	AHT20I2CAddr     uint8         `mapstructure:"aht20-i2c-addr"`
+	AHT20I2CBus      int           `mapstructure:"aht20-i2c-bus"`
 }
 
 func init() {
 	rootCmd.Flags().Int("metrics-port", DefaultMetricsPort, "Port on which to host Prometheus metrics")
-	rootCmd.Flags().String("port", DefaultPortName, "Path or name of block device through which to read from the sensor")
 	rootCmd.Flags().Duration("reconnect-timeout", DefaultReconnectTimeout, "Duration to wait before attempting to reconnect to the sensor after a failure")
+	rootCmd.Flags().String("pms5003-port", DefaultPMS5003PortName, "Path or name of block device through which to read from the Plantower PMS5003 sensor")
+	rootCmd.Flags().Uint8("aht20-i2c-addr", DefaultAHT20I2CAddr, "I2C address of the Asair AHT20 sensor")
+	rootCmd.Flags().Int("aht20-i2c-bus", DefaultAHT20I2CBus, "I2C bus to which the Asair ATH20 sensor is attached")
 
-	viper.SetEnvPrefix("PMS5003")
+	viper.SetEnvPrefix("EXPORTER")
 	replacer := strings.NewReplacer("-", "_")
 	viper.SetEnvKeyReplacer(replacer)
 	viper.AutomaticEnv()

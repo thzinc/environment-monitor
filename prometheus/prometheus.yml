@@ -21,19 +21,11 @@ scrape_configs:
     scheme: http
     static_configs:
       - targets: ["node_exporter:9100"]
-  - job_name: plantower-pms5003-exporter
+  - job_name: sensor-exporter
     honor_timestamps: true
     scrape_interval: 1s
     scrape_timeout: 900ms
     metrics_path: /metrics
     scheme: http
     static_configs:
-      - targets: ["plantower-pms5003-exporter:9100"]
-  - job_name: asair-aht20-exporter
-    honor_timestamps: true
-    scrape_interval: 1s
-    scrape_timeout: 900ms
-    metrics_path: /metrics
-    scheme: http
-    static_configs:
-      - targets: ["asair-aht20-exporter:9100"]
+      - targets: ["sensor-exporter:9100"]

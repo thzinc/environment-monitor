@@ -5,11 +5,8 @@ COPY . .
 RUN go build -o /artifacts/exporter cmd/main.go
 
 FROM balenalib/%%BALENA_MACHINE_NAME%%-debian-golang:stretch AS final
-RUN apt-get update
-RUN apt-get install i2c-tools
-
 WORKDIR /app
 COPY --from=build /artifacts/exporter .
 
 EXPOSE 9100
-CMD modprobe i2c-dev && i2cdetect -y 1 && /app/exporter
+CMD modprobe i2c-dev && /app/exporter
