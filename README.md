@@ -115,6 +115,9 @@ In order to start viewing system data, log in to the Grafana dashboard at _http<
 
 - UART: https://www.electronicwings.com/raspberry-pi/raspberry-pi-uart-communication-using-python-and-c
 - I2C: https://www.balena.io/docs/learn/develop/hardware/i2c-and-spi/#i2c
+  - https://forums.balena.io/t/modprobe-error-when-trying-to-enable-i2c-on-rpi/4669
+  - https://www.balena.io/docs/reference/supervisor/docker-compose/#labels
+  - I dunno, maybe? https://learn.sparkfun.com/tutorials/qwiic-kit-for-raspberry-pi-hookup-guide/troubleshooting
 - Balena hardware stuff: https://www.balena.io/docs/learn/develop/hardware/
 - Balena examples for priv mode and labels: https://github.com/balenalabs-incubator/boombeastic/blob/master/docker-compose.yml
 - "breathe" https://www.markhansen.co.nz/raspberry-pi-air-quality-sensor/

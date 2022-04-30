@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -14,7 +15,9 @@ import (
 )
 
 const (
-	MetricsPort int = 9100
+	MetricsPort int   = 9100
+	i2cAddr     uint8 = 0x38
+	i2cBus      int   = 1
 )
 
 var (
@@ -56,7 +59,7 @@ func main() {
 		return metricServer.Close()
 	})
 
-	sensor := aht20.NewSensor()
+	sensor := aht20.NewSensor(i2cAddr, i2cBus, 5*time.Second) // HACK: should be configurable
 	log.Info("starting sensor",
 		"sensor", sensor)
 	group.Go(sensor.Start(group.Context()))

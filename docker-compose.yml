@@ -46,6 +46,8 @@ services:
   asair-aht20-exporter:
     build: ./asair-aht20-exporter
     privileged: true
+    labels:
+      io.balena.features.kernel-modules: "1"
     networks:
       - backend
 
