@@ -38,6 +38,7 @@ services:
     build: ./plantower-pms5003-exporter
     privileged: true
     environment:
+      LOG_LEVEL: warn
       PMS5003_PORT: /dev/ttyAMA0
       PMS5003_METRICS_PORT: "9100"
       PMS5003_RECONNECT_TIMEOUT: 1s
@@ -48,6 +49,11 @@ services:
     privileged: true
     labels:
       io.balena.features.kernel-modules: "1"
+    environment:
+      LOG_LEVEL: warn
+      METRICS_PORT: "9100"
+      I2C_BUS: "1"
+      RECONNECT_TIMEOUT: 1s
     networks:
       - backend
 
