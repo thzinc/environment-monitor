@@ -40,11 +40,12 @@ services:
     labels:
       io.balena.features.kernel-modules: "1"
     environment:
-      LOG_LEVEL: info
+      LOG_LEVEL: debug
       EXPORTER_METRICS_PORT: "9100"
       EXPORTER_RECONNECT_TIMEOUT: 1s
       EXPORTER_PMS5003_PORT: /dev/ttyAMA0
       EXPORTER_AHT20_I2C_BUS: "1"
+      EXPORTER_SGP30_I2C_BUS: "1"
     networks:
       - backend
 networks:

@@ -19,34 +19,38 @@ const (
 	startCharacter2 byte = 0x4d
 )
 
+type StandardParticleConcentration uint16
+type EnvironmentalParticleConcentration uint16
+type CountPerDeciliter uint16
+
 // Reading represents the data portion of the PMS5003 transport protocol in Active Mode
 type Reading struct {
 	// Frame length
 	Length uint16
 	// PM1.0 concentration unit μ g/m3 (CF=1，standard particle)
-	Pm10Std uint16
+	Pm10Std StandardParticleConcentration
 	// PM2.5 concentration unit μ g/m3 (CF=1，standard particle)
-	Pm25Std uint16
+	Pm25Std StandardParticleConcentration
 	// PM10 concentration unit μ g/m3 (CF=1，standard particle)
-	Pm100Std uint16
+	Pm100Std StandardParticleConcentration
 	// PM1.0 concentration unit μ g/m3 (under atmospheric environment)
-	Pm10Env uint16
+	Pm10Env EnvironmentalParticleConcentration
 	// PM2.5 concentration unit μ g/m3 (under atmospheric environment)
-	Pm25Env uint16
+	Pm25Env EnvironmentalParticleConcentration
 	// PM10 concentration unit μ g/m3 (under atmospheric environment)
-	Pm100Env uint16
+	Pm100Env EnvironmentalParticleConcentration
 	// Number of particles with diameter beyond 0.3 um in 0.1L of air.
-	Particles3um uint16
+	Particles3um CountPerDeciliter
 	// Number of particles with diameter beyond 0.5 um in 0.1L of air.
-	Particles5um uint16
+	Particles5um CountPerDeciliter
 	// Number of particles with diameter beyond 1.0 um in 0.1L of air.
-	Particles10um uint16
+	Particles10um CountPerDeciliter
 	// Number of particles with diameter beyond 2.5 um in 0.1L of air.
-	Particles25um uint16
+	Particles25um CountPerDeciliter
 	// Number of particles with diameter beyond 5.0 um in 0.1L of air.
-	Particles50um uint16
+	Particles50um CountPerDeciliter
 	// Number of particles with diameter beyond 10.0 um in 0.1L of air.
-	Particles100um uint16
+	Particles100um CountPerDeciliter
 	// Reserved
 	Unused uint16
 	// Check code
