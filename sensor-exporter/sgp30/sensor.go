@@ -16,6 +16,8 @@ import (
 type PartsPerBillion uint16
 type PartsPerMillion uint16
 
+type requestAirQualityReading struct{}
+
 // AirQualityReading represents the transformed air quality signal from the SGP30 sensor
 type AirQualityReading struct {
 	// Indicates whether the reading can be considered valid depending on the initialization of the sensor and its running time
@@ -25,6 +27,8 @@ type AirQualityReading struct {
 	// Equivalent carbon dioxide (CO2) concentration in parts per million
 	EquivalentCO2 PartsPerMillion
 }
+
+type requestRawReading struct{}
 
 // RawReading represents the transformed raw signal from the SGP30 sensor
 type RawReading struct {
@@ -81,12 +85,16 @@ func (s *Sensor) Start(ctx context.Context) func() error {
 				return errors.Wrapf(err, "failed to open I2C address %v on bus %v", s.i2cAddr, s.i2cBus)
 			}
 
+			commands := make(chan interface{})
+			defer close(commands)
+
 			group, innerCtx := errgroup.WithContext(ctx)
 			group.Go(func() error {
 				serial, err := getSerialID(innerCtx, i2c)
 				if err != nil {
 					return errors.Wrap(err, "failed to read serial")
 				}
+				// HACK: record the serial for use with baselines later
 
 				isSupported, featureSet, err := isSupportedFeatureSetVersion(i2c)
 				if err != nil {
@@ -100,41 +108,57 @@ func (s *Sensor) Start(ctx context.Context) func() error {
 					"serial", serial,
 					"featureSet", featureSet)
 
-				// TODO: init
+				err = initAirQuality(innerCtx, i2c)
+				if err != nil {
+					return errors.Wrap(err, "failed to initialize air quality")
+				}
 
+				group.Go(scheduleCommand(innerCtx, commands, &requestAirQualityReading{}, 1*time.Second))
+				group.Go(scheduleCommand(innerCtx, commands, &requestRawReading{}, 25*time.Millisecond))
+
+				return nil
+			})
+			group.Go(func() error {
 				for {
-					airQualityReadings, err := measureAirQuality(innerCtx, i2c)
-					if err != nil {
-						return errors.Wrap(err, "failed to read air quality")
-					}
-					airQualityReading := &AirQualityReading{
-						IsValid:       false, // HACK
-						TotalVOC:      PartsPerBillion(airQualityReadings[1]),
-						EquivalentCO2: PartsPerMillion(airQualityReadings[0]),
-					}
 					select {
 					case <-innerCtx.Done():
 						return nil
-					case s.airQualityReadings <- airQualityReading:
+					case c := <-commands:
+						switch command := c.(type) {
+						case *requestAirQualityReading:
+							airQualityReadings, err := measureAirQuality(innerCtx, i2c)
+							if err != nil {
+								return errors.Wrap(err, "failed to read air quality")
+							}
+							airQualityReading := &AirQualityReading{
+								IsValid:       false, // HACK
+								TotalVOC:      PartsPerBillion(airQualityReadings[1]),
+								EquivalentCO2: PartsPerMillion(airQualityReadings[0]),
+							}
+							select {
+							case <-innerCtx.Done():
+								return nil
+							case s.airQualityReadings <- airQualityReading:
+							}
+						case *requestRawReading:
+							rawReadings, err := measureRawSignals(innerCtx, i2c)
+							if err != nil {
+								return errors.Wrap(err, "failed to read raw signals")
+							}
+							rawReading := &RawReading{
+								H2:      PartsPerMillion(rawReadings[0]),
+								Ethanol: PartsPerMillion(rawReadings[1]),
+							}
+							select {
+							case <-innerCtx.Done():
+								return nil
+							case s.rawReadings <- rawReading:
+							}
+						default:
+							log.Warn("failed to handle unknown command",
+								"command", command)
+						}
 					}
-
-					rawReadings, err := measureRawSignals(innerCtx, i2c)
-					if err != nil {
-						return errors.Wrap(err, "failed to read raw signals")
-					}
-					rawReading := &RawReading{
-						H2:      PartsPerMillion(rawReadings[0]),
-						Ethanol: PartsPerMillion(rawReadings[1]),
-					}
-					select {
-					case <-innerCtx.Done():
-						return nil
-					case s.rawReadings <- rawReading:
-					}
-
-					// TODO: get baseline
-					// TODO: set baseline
-					// TODO: set humidity
 				}
 			})
 			group.Go(func() error {
@@ -158,9 +182,25 @@ func (s *Sensor) Start(ctx context.Context) func() error {
 	}
 }
 
+func scheduleCommand(ctx context.Context, commands chan interface{}, command interface{}, interval time.Duration) func() error {
+	return func() error {
+		for {
+			select {
+			case <-ctx.Done():
+				return nil
+			case <-time.After(interval):
+				select {
+				case <-ctx.Done():
+					return nil
+				case commands <- command:
+				}
+			}
+		}
+	}
+}
+
 func getSerialID(ctx context.Context, i2c *i2c.I2C) ([]uint16, error) {
-	cmd_serial := []byte{0x36, 0x82}
-	_, err := i2c.WriteBytes(cmd_serial)
+	_, err := i2c.WriteBytes([]byte{0x36, 0x82})
 	if err != nil {
 		return nil, err
 	}
@@ -210,6 +250,19 @@ func isSupportedFeatureSetVersion(i2c *i2c.I2C) (bool, uint16, error) {
 	return exists, featureSet, nil
 }
 
+func initAirQuality(ctx context.Context, i2c *i2c.I2C) error {
+	_, err := i2c.WriteBytes([]byte{0x20, 0x03})
+	if err != nil {
+		return err
+	}
+
+	select {
+	case <-ctx.Done():
+	case <-time.After(10 * time.Millisecond):
+	}
+
+	return nil
+}
 func measureAirQuality(ctx context.Context, i2c *i2c.I2C) ([]uint16, error) {
 	_, err := i2c.WriteBytes([]byte{0x20, 0x08})
 	if err != nil {

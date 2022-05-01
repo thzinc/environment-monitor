@@ -97,18 +97,12 @@ func Execute(settings *Settings) error {
 					return nil
 				}
 
-				log.Debug("received gas sensor air quality reading",
-					"reading", reading)
-
 				setSGPAirQualityMetrics(reading)
 			case reading, ok := <-gasSensor.RawReadings():
 				if !ok {
 					log.Debug("gas sensor raw readings channel closed")
 					return nil
 				}
-
-				log.Debug("received gas sensor raw reading",
-					"reading", reading)
 
 				setSGPRawMetrics(reading)
 			case <-group.Context().Done():
