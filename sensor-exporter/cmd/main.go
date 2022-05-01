@@ -10,8 +10,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -28,52 +26,9 @@ const (
 )
 
 var (
-	aht_received_packets = promauto.NewCounter(
-		prometheus.CounterOpts{
-			Name: "aht_received_packets",
-		},
-	)
-	aht_relative_humidity = promauto.NewGauge(
-		prometheus.GaugeOpts{
-			Name: "aht_relative_humidity",
-			Help: "Percentage of relative humidity",
-		},
-	)
-	aht_temperature = promauto.NewGauge(
-		prometheus.GaugeOpts{
-			Name: "aht_temperature",
-			Help: "Temperature in degrees Celsius",
-		},
-	)
-	pms_received_packets = promauto.NewCounter(
-		prometheus.CounterOpts{
-			Name: "pms_received_packets",
-		},
-	)
-	pms_particulate_matter_standard = promauto.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Name: "pms_particulate_matter_standard",
-			Help: "Micrograms per cubic meter, standard particle",
-		},
-		[]string{"microns"},
-	)
-	pms_particulate_matter_environmental = promauto.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Name: "pms_particulate_matter_environmental",
-			Help: "Micrograms per cubic meter, adjusted for atmospheric environment",
-		},
-		[]string{"microns"},
-	)
-	pms_particle_counts = promauto.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Name: "pms_particle_counts",
-			Help: "Number of particles with diameter beyond given number of microns in 0.1L of air",
-		},
-		[]string{"microns_lower_bound"},
-	)
 	rootCmd = cobra.Command{
-		Use:           "plantower-pms5003-exporter",
-		Short:         "start collecting readings from the sensor and host a metrics server",
+		Use:           "sensor-exporter",
+		Short:         "start collecting readings from sensors and host a metrics server",
 		SilenceErrors: true,
 		SilenceUsage:  true,
 		RunE: func(_ *cobra.Command, args []string) error {
@@ -82,6 +37,8 @@ var (
 			if err != nil {
 				return errors.Wrap(err, "failed to parse settings")
 			}
+			log.Info("using settings",
+				"settings", settings)
 
 			group := cmd.NewProcessGroup(context.Background())
 
@@ -118,19 +75,7 @@ var (
 						log.Debug("received reading",
 							"reading", reading)
 
-						pms_received_packets.Inc()
-						pms_particulate_matter_standard.WithLabelValues("1").Set(float64(reading.Pm10Std))
-						pms_particulate_matter_standard.WithLabelValues("2.5").Set(float64(reading.Pm25Std))
-						pms_particulate_matter_standard.WithLabelValues("10").Set(float64(reading.Pm100Std))
-						pms_particulate_matter_environmental.WithLabelValues("1").Set(float64(reading.Pm10Env))
-						pms_particulate_matter_environmental.WithLabelValues("2.5").Set(float64(reading.Pm25Env))
-						pms_particulate_matter_environmental.WithLabelValues("10").Set(float64(reading.Pm100Env))
-						pms_particle_counts.WithLabelValues("0.3").Set(float64(reading.Particles3um))
-						pms_particle_counts.WithLabelValues("0.5").Set(float64(reading.Particles5um))
-						pms_particle_counts.WithLabelValues("1").Set(float64(reading.Particles10um))
-						pms_particle_counts.WithLabelValues("2.5").Set(float64(reading.Particles25um))
-						pms_particle_counts.WithLabelValues("5").Set(float64(reading.Particles50um))
-						pms_particle_counts.WithLabelValues("10").Set(float64(reading.Particles100um))
+						setPMSMetrics(reading)
 					case <-group.Context().Done():
 						return nil
 					}
@@ -154,9 +99,7 @@ var (
 						log.Debug("received reading",
 							"reading", reading)
 
-						aht_received_packets.Inc()
-						aht_relative_humidity.Set(float64(reading.Humidity))
-						aht_temperature.Set(float64(reading.Temperature))
+						setAHTMetrics(reading)
 					case <-group.Context().Done():
 						return nil
 					}
