@@ -1,19 +1,13 @@
 package main
 
 import (
-	"context"
-	"fmt"
-	"net/http"
-	"sensor-exporter/aht20"
-	"sensor-exporter/pms5003"
+	"sensor-exporter/internal/exporter"
 	"strings"
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/syncromatics/go-kit/v2/cmd"
 	"github.com/syncromatics/go-kit/v2/log"
 )
 
@@ -32,7 +26,7 @@ var (
 		SilenceErrors: true,
 		SilenceUsage:  true,
 		RunE: func(_ *cobra.Command, args []string) error {
-			settings := &Settings{}
+			settings := &exporter.Settings{}
 			err := viper.Unmarshal(settings)
 			if err != nil {
 				return errors.Wrap(err, "failed to parse settings")
@@ -40,85 +34,10 @@ var (
 			log.Info("using settings",
 				"settings", settings)
 
-			group := cmd.NewProcessGroup(context.Background())
-
-			metricServer := http.Server{
-				Addr:    fmt.Sprintf(":%d", settings.MetricsPort),
-				Handler: nil,
-			}
-			log.Info("starting metrics server",
-				"addr", metricServer.Addr)
-			group.Go(func() error {
-				http.Handle("/metrics", promhttp.Handler())
-				return metricServer.ListenAndServe()
-			})
-			group.Go(func() error {
-				<-group.Context().Done()
-				log.Info("stopping metrics server")
-				return metricServer.Close()
-			})
-
-			particulateSensor := pms5003.NewSensor(settings.PMSPortName, settings.ReconnectTimeout)
-			log.Info("starting particulate sensor",
-				"sensor", particulateSensor)
-			group.Go(particulateSensor.Start(group.Context()))
-			group.Go(func() error {
-				for {
-					log.Debug("waiting for reading...")
-					select {
-					case reading, ok := <-particulateSensor.Readings():
-						if !ok {
-							log.Debug("readings channel closed")
-							return nil
-						}
-
-						log.Debug("received reading",
-							"reading", reading)
-
-						setPMSMetrics(reading)
-					case <-group.Context().Done():
-						return nil
-					}
-				}
-			})
-
-			tempHumiditySensor := aht20.NewSensor(settings.AHT20I2CAddr, settings.AHT20I2CBus, settings.ReconnectTimeout)
-			log.Info("starting temperature and humidity sensor",
-				"sensor", tempHumiditySensor)
-			group.Go(tempHumiditySensor.Start(group.Context()))
-			group.Go(func() error {
-				for {
-					log.Debug("waiting for reading...")
-					select {
-					case reading, ok := <-tempHumiditySensor.Readings():
-						if !ok {
-							log.Debug("readings channel closed")
-							return nil
-						}
-
-						log.Debug("received reading",
-							"reading", reading)
-
-						setAHTMetrics(reading)
-					case <-group.Context().Done():
-						return nil
-					}
-				}
-			})
-
-			return group.Wait()
+			return exporter.Execute(settings)
 		},
 	}
 )
-
-// Settings defines the configured settings for the exporter
-type Settings struct {
-	MetricsPort      int           `mapstructure:"metrics-port"`
-	ReconnectTimeout time.Duration `mapstructure:"reconnect-timeout"`
-	PMSPortName      string        `mapstructure:"pms5003-port"`
-	AHT20I2CAddr     uint8         `mapstructure:"aht20-i2c-addr"`
-	AHT20I2CBus      int           `mapstructure:"aht20-i2c-bus"`
-}
 
 func init() {
 	rootCmd.Flags().Int("metrics-port", DefaultMetricsPort, "Port on which to host Prometheus metrics")

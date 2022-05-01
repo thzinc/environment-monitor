@@ -1,4 +1,4 @@
-package main
+package exporter
 
 import (
 	"sensor-exporter/aht20"
