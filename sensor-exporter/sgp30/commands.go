@@ -180,7 +180,7 @@ func setHumidity(ctx context.Context, i2c *i2c.I2C, humidity gramsPerCubicMeter)
 func setRelativeHumidity(ctx context.Context, i2c *i2c.I2C, temperature units.Celsius, relativeHumidity units.RelativeHumidity) error {
 	rh := float64(relativeHumidity)
 	c := float64(temperature)
-	numerator := ((rh / 100) * 6.112) * math.Exp((17.62*c)/(243.12+c))
+	numerator := rh * 6.112 * math.Exp((17.62*c)/(243.12+c))
 	denominator := 273.15 + c
 
 	humidity := gramsPerCubicMeter(216.7 * (numerator / denominator))
