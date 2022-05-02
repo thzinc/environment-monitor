@@ -128,6 +128,9 @@ In order to start viewing system data, log in to the Grafana dashboard at _http<
 - https://www.raspberrypi.com/documentation/computers/config_txt.html#enable_uart
 - https://www.balena.io/docs/reference/OS/advanced/
 - Issues with UART on Raspberry Pi 3 specifically: https://forums.balena.io/t/disable-console-over-serial-in-dev-on-rpi3/1412/21
+- Helpful
+  - https://learn.adafruit.com/adafruit-sgp30-gas-tvoc-eco2-mox-sensor/circuitpython-wiring-test
+  - https://github.dev/adafruit/Adafruit_CircuitPython_SGP30/blob/main/adafruit_sgp30.py
 
 On host OS
 
