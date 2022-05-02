@@ -2,6 +2,7 @@ package sgp30
 
 import (
 	"context"
+	"sensor-exporter/units"
 	"time"
 
 	"github.com/d2r2/go-i2c"
@@ -59,6 +60,11 @@ type RawReading struct {
 
 type becomeInitialized struct{}
 
+type updateHumidity struct {
+	temperature      units.Celsius
+	relativeHumidity units.RelativeHumidity
+}
+
 type Sensor struct {
 	i2cAddr            uint8
 	i2cBus             int
@@ -108,6 +114,19 @@ func (s *Sensor) BaselineReadings() <-chan *BaselineReading {
 	return s.baselineReadings
 }
 
+func (s *Sensor) SetRelativeHumidity(ctx context.Context, temperature units.Celsius, relativeHumidity units.RelativeHumidity) {
+	command := &updateHumidity{
+		temperature,
+		relativeHumidity,
+	}
+	go func() {
+		select {
+		case <-ctx.Done():
+		case s.commands <- command:
+		}
+	}()
+}
+
 func (s *Sensor) Start(ctx context.Context) func() error {
 	return func() error {
 		defer close(s.airQualityReadings)
@@ -144,10 +163,11 @@ func (s *Sensor) Start(ctx context.Context) func() error {
 					return errors.Wrap(err, "failed to initialize air quality")
 				}
 
+				now := time.Now()
 				var sensorReadingsNotValidBefore time.Time
 				if s.initialBaseline != nil &&
 					slices.Equal(s.initialBaseline.Serial, serial) &&
-					s.initialBaseline.BaselineInvalidAfter.Before(time.Now()) {
+					now.Before(s.initialBaseline.BaselineInvalidAfter) {
 					sensorReadingsNotValidBefore = s.initialBaseline.SensorReadingsNotValidBefore
 
 					err = setBaseline(innerCtx, i2c, uint16(s.initialBaseline.EquivalentCO2), uint16(s.initialBaseline.TotalVOC))
@@ -155,7 +175,11 @@ func (s *Sensor) Start(ctx context.Context) func() error {
 						return errors.Wrap(err, "failed to set baseline")
 					}
 				} else {
-					sensorReadingsNotValidBefore = time.Now().Add(12 * time.Hour)
+					log.Warn("failed to set baseline; sensor will require acclimation",
+						"serial", serial,
+						"now", now,
+						"initialBaseline", s.initialBaseline)
+					sensorReadingsNotValidBefore = now.Add(12 * time.Hour)
 				}
 
 				group.Go(s.handleCommands(innerCtx, i2c, sensorReadingsNotValidBefore))
@@ -290,6 +314,11 @@ func (s *Sensor) handleCommands(innerCtx context.Context, i2c *i2c.I2C, sensorRe
 					case <-innerCtx.Done():
 						return nil
 					case s.baselineReadings <- baselineReading:
+					}
+				case *updateHumidity:
+					err := setRelativeHumidity(innerCtx, i2c, command.temperature, command.relativeHumidity)
+					if err != nil {
+						return errors.Wrap(err, "failed to set humidity")
 					}
 				default:
 					log.Warn("failed to handle unknown command",

@@ -3,6 +3,7 @@ package aht20
 import (
 	"context"
 	"io"
+	"sensor-exporter/units"
 	"time"
 
 	"github.com/d2r2/go-i2c"
@@ -17,13 +18,10 @@ const (
 	statusTimeout time.Duration = 10 * time.Millisecond
 )
 
-type RelativeHumidity float64
-type Celsius float64
-
 // Reading represents the transformed signal from the AHT20 sensor
 type Reading struct {
-	Humidity    RelativeHumidity
-	Temperature Celsius
+	Humidity    units.RelativeHumidity
+	Temperature units.Celsius
 }
 
 type Sensor struct {
@@ -230,11 +228,11 @@ func trigger(ctx context.Context, i2c *i2c.I2C) (*Reading, error) {
 
 		var rawHumidityReading uint32
 		rawHumidityReading = uint32(buf[1])<<12 | uint32(buf[2])<<4 | uint32(buf[3])>>4
-		humidity := RelativeHumidity(rawHumidityReading) / 0x100000
+		humidity := units.RelativeHumidity(rawHumidityReading) / 0x100000
 
 		var rawTemperatureReading uint32
 		rawTemperatureReading = uint32((buf[3]&0xF))<<16 | uint32(buf[4])<<8 | uint32(buf[5])
-		temperature := ((Celsius(rawTemperatureReading) * 200.0) / 0x100000) - 50
+		temperature := ((units.Celsius(rawTemperatureReading) * 200.0) / 0x100000) - 50
 
 		reading := &Reading{
 			humidity,

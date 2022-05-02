@@ -5,7 +5,6 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"github.com/syncromatics/go-kit/v2/log"
 )
 
 var (
@@ -50,8 +49,6 @@ var (
 
 func setSGPAirQualityMetrics(reading *sgp30.AirQualityReading) {
 	sgp_received_packets.Inc()
-	log.Debug("received gas sensor air quality reading",
-		"reading", reading)
 
 	var label string
 	if reading.IsValid {

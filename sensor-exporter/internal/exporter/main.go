@@ -81,6 +81,7 @@ func Execute(settings *Settings) error {
 	group.Go(gasSensor.Start(group.Context()))
 
 	group.Go(func() error {
+		setHumidityAfter := time.Time{}
 		for {
 			select {
 			case reading, ok := <-particulateSensor.Readings():
@@ -97,6 +98,14 @@ func Execute(settings *Settings) error {
 				}
 
 				setAHTMetrics(reading)
+
+				now := time.Now()
+				if now.After(setHumidityAfter) {
+					setHumidityAfter = now.Add(10 * time.Second)
+					log.Debug("setting relative humidity on gas sensor",
+						"reading", reading)
+					gasSensor.SetRelativeHumidity(group.Context(), reading.Temperature, reading.Humidity)
+				}
 			case reading, ok := <-gasSensor.AirQualityReadings():
 				if !ok {
 					log.Debug("gas sensor air quality readings channel closed")

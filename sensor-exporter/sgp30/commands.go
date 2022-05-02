@@ -3,6 +3,8 @@ package sgp30
 import (
 	"context"
 	"io"
+	"math"
+	"sensor-exporter/units"
 	"time"
 
 	"github.com/d2r2/go-i2c"
@@ -152,6 +154,37 @@ func setBaseline(ctx context.Context, i2c *i2c.I2C, eCO2, tVOC uint16) error {
 	case <-time.After(10 * time.Millisecond):
 	}
 	return nil
+}
+
+type gramsPerCubicMeter float64
+
+func setHumidity(ctx context.Context, i2c *i2c.I2C, humidity gramsPerCubicMeter) error {
+	fixedPointValue := uint16(humidity * 256)
+	humidityData := []byte{byte(fixedPointValue >> 8), byte(fixedPointValue)}
+	humidityCRC := crc8.Checksum(humidityData, checksumTable)
+
+	command := []byte{0x20, 0x61}
+	_, err := i2c.WriteBytes(append(command, humidityData[0], humidityData[1], humidityCRC))
+	if err != nil {
+		return err
+	}
+
+	select {
+	case <-ctx.Done():
+		return io.EOF
+	case <-time.After(10 * time.Millisecond):
+	}
+	return nil
+}
+
+func setRelativeHumidity(ctx context.Context, i2c *i2c.I2C, temperature units.Celsius, relativeHumidity units.RelativeHumidity) error {
+	rh := float64(relativeHumidity)
+	c := float64(temperature)
+	numerator := ((rh / 100) * 6.112) * math.Exp((17.62*c)/(243.12+c))
+	denominator := 273.15 + c
+
+	humidity := gramsPerCubicMeter(216.7 * (numerator / denominator))
+	return setHumidity(ctx, i2c, humidity)
 }
 
 var (
