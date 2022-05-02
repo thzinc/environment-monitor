@@ -2,7 +2,9 @@ package exporter
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"sensor-exporter/aht20"
 	"sensor-exporter/pms5003"
@@ -24,6 +26,7 @@ type Settings struct {
 	AHT20I2CBus      int           `mapstructure:"aht20-i2c-bus"`
 	SGP30I2CAddr     uint8         `mapstructure:"sgp30-i2c-addr"`
 	SGP30I2CBus      int           `mapstructure:"sgp30-i2c-bus"`
+	BaselineFile     string        `mapstructure:"baseline-file"`
 }
 
 const (
@@ -34,6 +37,7 @@ const (
 	DefaultAHT20I2CBus      int           = 1
 	DefaultSGP30I2CAddr     uint8         = 0x58
 	DefaultSGP30I2CBus      int           = 1
+	DefaultBaselineFile     string        = "/var/lib/sensor-exporter/baseline.json"
 )
 
 func ConfigureFlags(flags *pflag.FlagSet) {
@@ -44,6 +48,7 @@ func ConfigureFlags(flags *pflag.FlagSet) {
 	flags.Int("aht20-i2c-bus", DefaultAHT20I2CBus, "I2C bus to which the Asair AHT20 sensor is attached")
 	flags.Uint8("sgp30-i2c-addr", DefaultSGP30I2CAddr, "I2C address of the Sensiron SGP30 sensor")
 	flags.Int("sgp30-i2c-bus", DefaultSGP30I2CBus, "I2C bus to which the Sensiron SGP30 sensor is attached")
+	flags.String("baseline-file", DefaultBaselineFile, "File to store JSON-encoded sensor baseline data to")
 }
 
 func Execute(settings *Settings) error {
@@ -71,7 +76,8 @@ func Execute(settings *Settings) error {
 	tempHumiditySensor := aht20.NewSensor(settings.AHT20I2CAddr, settings.AHT20I2CBus, settings.ReconnectTimeout)
 	group.Go(tempHumiditySensor.Start(group.Context()))
 
-	gasSensor := sgp30.NewSensor(settings.SGP30I2CAddr, settings.SGP30I2CBus, settings.ReconnectTimeout)
+	initialBaseline := tryReadBaseline(settings.BaselineFile)
+	gasSensor := sgp30.NewSensor(settings.SGP30I2CAddr, settings.SGP30I2CBus, settings.ReconnectTimeout, initialBaseline)
 	group.Go(gasSensor.Start(group.Context()))
 
 	group.Go(func() error {
@@ -105,6 +111,13 @@ func Execute(settings *Settings) error {
 				}
 
 				setSGPRawMetrics(reading)
+			case baseline, ok := <-gasSensor.BaselineReadings():
+				if !ok {
+					log.Debug("gas sensor baseline readings channel closed")
+					return nil
+				}
+
+				tryWriteBaseline(settings.BaselineFile, baseline)
 			case <-group.Context().Done():
 				return nil
 			}
@@ -112,4 +125,51 @@ func Execute(settings *Settings) error {
 	})
 
 	return group.Wait()
+}
+
+func tryReadBaseline(path string) *sgp30.BaselineReading {
+	var initialBaseline *sgp30.BaselineReading
+	bytes, err := ioutil.ReadFile(path)
+	if err != nil {
+		log.Error("failed to read baseline file; sensor will require acclimation",
+			"err", err,
+			"path", path)
+		return nil
+	}
+
+	err = json.Unmarshal(bytes, &initialBaseline)
+	if err != nil {
+		log.Error("failed to unmarshal baseline file; sensor will require acclimation",
+			"err", err,
+			"path", path,
+			"bytes", bytes)
+		return nil
+	}
+
+	log.Info("initializing sensor with stored baseline",
+		"path", path,
+		"initialBaseline", initialBaseline)
+	return initialBaseline
+}
+
+func tryWriteBaseline(path string, baseline *sgp30.BaselineReading) {
+	file, err := json.MarshalIndent(baseline, "", "\t")
+	if err != nil {
+		log.Error("failed to marshall baseline",
+			"err", err,
+			"baseline", baseline)
+	}
+
+	err = ioutil.WriteFile(path, file, 0644)
+	if err != nil {
+		log.Error("failed to write baseline file",
+			"err", err,
+			"file", file,
+			"baseline", baseline,
+			"path", path)
+	}
+
+	log.Info("stored new baseline",
+		"path", path,
+		"baseline", baseline)
 }

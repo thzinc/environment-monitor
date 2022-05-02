@@ -46,8 +46,11 @@ services:
       EXPORTER_PMS5003_PORT: /dev/ttyAMA0
       EXPORTER_AHT20_I2C_BUS: "1"
       EXPORTER_SGP30_I2C_BUS: "1"
+      EXPORTER_BASELINE_FILE: "/var/lib/sensor-exporter/baseline.json"
     networks:
       - backend
+    volumes:
+      - sensor_exporter_var:/var/lib/sensor-exporter
 networks:
   frontend:
   backend:
@@ -56,3 +59,4 @@ volumes:
   grafana_etc:
   grafana_usr:
   grafana_var:
+  sensor_exporter_var:
