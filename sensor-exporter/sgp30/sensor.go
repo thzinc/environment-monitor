@@ -61,8 +61,7 @@ type RawReading struct {
 type becomeInitialized struct{}
 
 type updateHumidity struct {
-	temperature      units.Celsius
-	relativeHumidity units.RelativeHumidity
+	humidity units.GramsPerCubicMeter
 }
 
 type Sensor struct {
@@ -114,11 +113,8 @@ func (s *Sensor) BaselineReadings() <-chan *BaselineReading {
 	return s.baselineReadings
 }
 
-func (s *Sensor) SetRelativeHumidity(ctx context.Context, temperature units.Celsius, relativeHumidity units.RelativeHumidity) {
-	command := &updateHumidity{
-		temperature,
-		relativeHumidity,
-	}
+func (s *Sensor) SetHumidity(ctx context.Context, humidity units.GramsPerCubicMeter) {
+	command := &updateHumidity{humidity}
 	go func() {
 		select {
 		case <-ctx.Done():
@@ -316,7 +312,7 @@ func (s *Sensor) handleCommands(innerCtx context.Context, i2c *i2c.I2C, sensorRe
 					case s.baselineReadings <- baselineReading:
 					}
 				case *updateHumidity:
-					err := setRelativeHumidity(innerCtx, i2c, command.temperature, command.relativeHumidity)
+					err := setHumidity(innerCtx, i2c, command.humidity)
 					if err != nil {
 						return errors.Wrap(err, "failed to set humidity")
 					}

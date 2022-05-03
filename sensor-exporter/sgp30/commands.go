@@ -3,7 +3,6 @@ package sgp30
 import (
 	"context"
 	"io"
-	"math"
 	"sensor-exporter/units"
 	"time"
 
@@ -156,9 +155,7 @@ func setBaseline(ctx context.Context, i2c *i2c.I2C, eCO2, tVOC uint16) error {
 	return nil
 }
 
-type gramsPerCubicMeter float64
-
-func setHumidity(ctx context.Context, i2c *i2c.I2C, humidity gramsPerCubicMeter) error {
+func setHumidity(ctx context.Context, i2c *i2c.I2C, humidity units.GramsPerCubicMeter) error {
 	fixedPointValue := uint16(humidity * 256)
 	humidityData := []byte{byte(fixedPointValue >> 8), byte(fixedPointValue)}
 	humidityCRC := crc8.Checksum(humidityData, checksumTable)
@@ -175,16 +172,6 @@ func setHumidity(ctx context.Context, i2c *i2c.I2C, humidity gramsPerCubicMeter)
 	case <-time.After(10 * time.Millisecond):
 	}
 	return nil
-}
-
-func setRelativeHumidity(ctx context.Context, i2c *i2c.I2C, temperature units.Celsius, relativeHumidity units.RelativeHumidity) error {
-	rh := float64(relativeHumidity)
-	c := float64(temperature)
-	numerator := rh * 6.112 * math.Exp((17.62*c)/(243.12+c))
-	denominator := 273.15 + c
-
-	humidity := gramsPerCubicMeter(216.7 * (numerator / denominator))
-	return setHumidity(ctx, i2c, humidity)
 }
 
 var (

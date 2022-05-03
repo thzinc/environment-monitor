@@ -9,6 +9,7 @@ import (
 	"sensor-exporter/aht20"
 	"sensor-exporter/pms5003"
 	"sensor-exporter/sgp30"
+	"sensor-exporter/units"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -97,14 +98,17 @@ func Execute(settings *Settings) error {
 					return nil
 				}
 
-				setAHTMetrics(reading)
+				humidity := units.AbsoluteHumidity(reading.Temperature, reading.Humidity)
+				setAHTMetrics(reading, humidity)
 
 				now := time.Now()
 				if now.After(setHumidityAfter) {
 					setHumidityAfter = now.Add(10 * time.Second)
-					log.Debug("setting relative humidity on gas sensor",
+
+					log.Debug("setting humidity on gas sensor",
+						"humidity", humidity,
 						"reading", reading)
-					gasSensor.SetRelativeHumidity(group.Context(), reading.Temperature, reading.Humidity)
+					gasSensor.SetHumidity(group.Context(), humidity)
 				}
 			case reading, ok := <-gasSensor.AirQualityReadings():
 				if !ok {
