@@ -171,6 +171,7 @@ func tryWriteBaseline(path string, baseline *sgp30.BaselineReading) {
 		log.Error("failed to marshall baseline",
 			"err", err,
 			"baseline", baseline)
+		return
 	}
 
 	err = ioutil.WriteFile(path, file, 0644)
@@ -180,6 +181,7 @@ func tryWriteBaseline(path string, baseline *sgp30.BaselineReading) {
 			"file", file,
 			"baseline", baseline,
 			"path", path)
+		return
 	}
 
 	log.Info("stored new baseline",
