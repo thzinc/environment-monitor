@@ -46,3 +46,6 @@ reboot
 
 - https://www.airnow.gov/sites/default/files/2020-05/aqi-technical-assistance-document-sept2018.pdf
 - https://forum.airnowtech.org/t/aqi-calculations-overview-ozone-pm2-5-and-pm10/168
+- https://forums.adafruit.com/viewtopic.php?f=48&t=136528&p=772070&hilit=plantower#p772057
+- https://amt.copernicus.org/articles/14/4617/2021/amt-14-4617-2021-discussion.html
+- https://www3.epa.gov/region1/airquality/pm-aq-standards.html
